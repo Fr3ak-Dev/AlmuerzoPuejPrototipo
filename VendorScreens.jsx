@@ -134,12 +134,7 @@ const OrderCard = ({ order, onStatusChange }) => {
           </div>
 
           {/* Status-specific hints */}
-          {order.status === 'pending' && (
-            <div style={{ marginTop: 11, padding: '8px 11px', background: '#F0FDF4', borderRadius: 10, fontSize: 11, color: '#15803D', display: 'flex', gap: 7, alignItems: 'center', border: '1px solid #BBF7D0' }}>
-              <span style={{ fontSize: 13 }}>🔔</span>
-              <span style={{ lineHeight: 1.35 }}>Al recibir, el cliente recibirá una notificación automática.</span>
-            </div>
-          )}
+          
 
           {/* Pending action */}
           {order.status === 'pending' && (
@@ -211,7 +206,7 @@ const OrderCard = ({ order, onStatusChange }) => {
             <div style={{ width: 36, height: 4, background: '#D4B9A0', borderRadius: 4, margin: '0 auto 16px' }} />
             <div style={{ fontSize: 18, fontWeight: 800, color: '#1C0A00', marginBottom: 7 }}>Rechazar pedido</div>
             <div style={{ fontSize: 14, color: '#6B3A1F', lineHeight: 1.55, marginBottom: 20 }}>
-              ¿Segura que quieres rechazar el pedido de <strong>{order.name}</strong>?<br/>El cliente será notificado automáticamente.
+              ¿Segura que quieres rechazar el pedido de <strong>{order.name}</strong>?<br/>El cliente será notificado.
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => setShowRejectModal(false)} style={{ flex: 1, padding: '13px', background: '#F9F4EE', color: '#6B3A1F', border: '2px solid #F0D8C0', borderRadius: 13, fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font)' }}>Cancelar</button>
@@ -673,11 +668,11 @@ const VendorApp = ({ businessName }) => {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status, isNew: false, payment: payment || o.payment } : o));
     const order = orders.find(o => o.id === id);
     if (order) {
-      if (status === 'received')                         setToast({ kind: 'ok',   icon: '✓',  text: `Pedido recibido · ${order.phone} notificado` });
+      if (status === 'received')                         setToast({ kind: 'ok',   icon: '✓',  text: `Pedido recibido` });
       if (status === 'delivered')                        setToast({ kind: 'ok',   icon: '🎉', text: `${order.name} marcado como entregado` });
       if (status === 'confirmed' && payment === 'cash')  setToast({ kind: 'ok',   icon: '💵', text: `Pago confirmado en efectivo` });
       if (status === 'confirmed' && payment === 'qr')    setToast({ kind: 'ok',   icon: '📱', text: `Pago confirmado por QR` });
-      if (status === 'rejected')                         setToast({ kind: 'warn', icon: '✕',  text: `Pedido rechazado · Cliente notificado` });
+      if (status === 'rejected')                         setToast({ kind: 'warn', icon: '✕',  text: `Pedido rechazado` });
       setTimeout(() => setToast(null), 3200);
     }
   };

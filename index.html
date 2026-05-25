@@ -377,15 +377,9 @@ const CustomerSuccessScreen = ({ businessName, onBack }) => (
     <div style={{ textAlign:'center' }}>
       <div style={{ fontSize:24, fontWeight:800, color:'var(--text)' }}>¡Pedido recibido!</div>
       <div style={{ fontSize:14, color:'var(--text-mid)', marginTop:10, lineHeight:1.6, maxWidth:280 }}>
-        <strong>{businessName}</strong> ya tiene tu pedido y te avisará apenas lo confirme.
+        <strong>{businessName}</strong> ya tiene tu pedido y te confirmará cuando esté listo.
       </div>
     </div>
-    {/* <div style={{ background:'#fff', borderRadius:16, padding:'14px 16px', width:'100%', display:'flex', alignItems:'center', gap:12, boxShadow:'var(--shadow)' }}>
-      <div style={{ width:34, height:34, borderRadius:'50%', background:'var(--orange-light)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, flexShrink:0 }}>🔔</div>
-      <div style={{ fontSize:13, color:'var(--text-mid)', lineHeight:1.45 }}>
-        Recibirás una notificación cuando tu pedido esté <strong>confirmado</strong>.
-      </div>
-    </div> */}
     <button onClick={onBack} style={{ marginTop:4, background:'var(--orange-light)', color:'var(--orange)', border:'none', borderRadius:14, padding:'13px 28px', fontSize:15, fontWeight:700, cursor:'pointer', fontFamily:'var(--font)' }}>
       ← Volver al menú
     </button>
