@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AlmuerzoPuej — Prototipo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --font:'Plus Jakarta Sans',sans-serif;
+  --orange:#F97316;--orange-deep:#EA580C;--orange-light:#FFF7ED;--orange-mid:#FED7AA;
+  --green:#16A34A;--green-light:#F0FDF4;
+  --cream:#FFFBF5;--bg:#F9F4EE;
+  --text:#1C0A00;--text-mid:#6B3A1F;--text-muted:#9A5A2A;--text-pale:#C4956A;
+  --border:#F0D8C0;--card:#fff;
+  --r:18px;--rs:12px;
+  --shadow:0 2px 12px rgba(234,88,12,.07);
+}
+html,body{height:100%;font-family:var(--font);}
+body{
+  background:#1A0800;
+  background-image:radial-gradient(ellipse 120% 60% at 50% 0%,#3D1500 0%,#1A0800 55%);
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:flex-start;padding:28px 16px 48px;gap:20px;min-height:100vh;
+}
+.mode-row{display:flex;flex-direction:column;align-items:center;gap:12px;}
+.mode-label{color:rgba(255,255,255,0.38);font-size:11px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;}
+.mode-toggle{display:flex;background:rgba(255,255,255,0.07);border-radius:100px;padding:4px;gap:4px;}
+.mode-btn{padding:9px 22px;border-radius:100px;border:none;cursor:pointer;font-family:var(--font);font-size:14px;font-weight:700;transition:background .2s,color .2s,box-shadow .2s;}
+.mode-btn.active{background:var(--orange);color:#fff;box-shadow:0 4px 14px rgba(249,115,22,.40);}
+.mode-btn:not(.active){background:transparent;color:rgba(255,255,255,0.45);}
+.phone{width:390px;height:820px;border-radius:46px;background:#0A0A0A;box-shadow:inset 0 0 0 1.5px #2A2A2A,0 0 0 1px #111,0 50px 120px rgba(0,0,0,.70);overflow:hidden;position:relative;flex-shrink:0;}
+.phone-inner{position:absolute;inset:2px;border-radius:44px;overflow:hidden;background:var(--cream);display:flex;flex-direction:column;}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#0A0A0A;border-radius:0 0 22px 22px;z-index:50;pointer-events:none;}
+.slug-badge{color:rgba(255,255,255,0.28);font-size:12px;font-weight:600;letter-spacing:.3px;display:flex;align-items:center;gap:6px;}
+.slug-badge span{color:rgba(255,255,255,0.55);}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.screen{display:flex;flex-direction:column;height:100%;overflow:hidden;animation:fadeUp .22s ease;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<!-- ══ SHARED DATA + COMPONENTS ══════════════════════════════════════════════ -->
+<script type="text/babel">
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "businessName": "El Sabor de René (Kimberly)",
+  "showPrices": true,
+  "primaryColor": "#16A34A"
+}/*EDITMODE-END*/;
+
+const MENU_ITEMS_DATA = [
+  { id:2, name:'Silpancho',           price:13, emoji:'🍽️', cat:'Segundo', stock:3  },
+  { id:3, name:'Chicharrón de pollo',  price:13, emoji:'🍗', cat:'Segundo', stock:0  },
+  { id:5, name:'Arroz con leche',      price:5,  emoji:'🍮', cat:'Postre',  stock:6  },
+];
+
+// Shared menu store — single source of truth synced between Customer and Vendor.
+// Mutate via setMenu(newArray); subscribe via the `menuchange` window event.
+window.__menuStore = {
+  items: MENU_ITEMS_DATA.map(i => ({ ...i })),
+};
+function setMenu(newItems) {
+  window.__menuStore.items = newItems;
+  window.dispatchEvent(new CustomEvent('menuchange'));
+}
+function useMenu() {
+  const [items, setItems] = React.useState(window.__menuStore.items);
+  React.useEffect(() => {
+    const handler = () => setItems([...window.__menuStore.items]);
+    window.addEventListener('menuchange', handler);
+    return () => window.removeEventListener('menuchange', handler);
+  }, []);
+  return items;
+}
+
+const MOCK_ORDERS = [
+  { id:1, name:'Sebastián M.',  phone:'+591 70012345', items:[{name:'Silpancho',qty:1,price:13}],  status:'pending',   time:'11:32', isNew:false, isNewClient:false, payment:null },
+  { id:2, name:'Ana Torres',    phone:'+591 76543210', items:[{name:'Silpancho',qty:2,price:13}],                                        status:'received',  time:'11:45', isNew:false, isNewClient:false, payment:null },
+  { id:3, name:'Roberto V.',    phone:'+591 71234567', items:[{name:'Silpancho',qty:1,price:13},{name:'Arroz con leche',qty:1,price:5}], status:'delivered', time:'12:01', isNew:false, isNewClient:false, payment:null },
+  { id:4, name:'Yamily Paz',   phone:'+591 72345678', items:[{name:'Silpancho',qty:1,price:13}],   status:'pending',   time:'12:08', isNew:true,  isNewClient:true,  payment:null },
+];
+
+const MOCK_CLIENTS = [
+  { id:1, name:'Ana Torres',    phone:'+591 76543210', orders:14, lastOrder:'ayer',  isNew:false, isFrequent:true  },
+  { id:2, name:'Sebastián M.', phone:'+591 70012345', orders:8,  lastOrder:'hoy',   isNew:false, isFrequent:true  },
+  { id:3, name:'Roberto V.',   phone:'+591 71234567', orders:6,  lastOrder:'hoy',   isNew:false, isFrequent:false },
+  { id:4, name:'Yamily Paz',   phone:'+591 72345678', orders:1,  lastOrder:'hoy',   isNew:true,  isFrequent:false },
+  { id:5, name:'Marco Suárez', phone:'+591 73456789', orders:3,  lastOrder:'lunes', isNew:false, isFrequent:false },
+];
+
+// Status bar
+const StatusBar = ({ light }) => {
+  const [time, setTime] = React.useState(() => {
+    const n = new Date(); return `${n.getHours()}:${String(n.getMinutes()).padStart(2,'0')}`;
+  });
+  React.useEffect(() => {
+    const t = setInterval(() => {
+      const n = new Date(); setTime(`${n.getHours()}:${String(n.getMinutes()).padStart(2,'0')}`);
+    }, 30000);
+    return () => clearInterval(t);
+  }, []);
+  const c = light ? 'rgba(255,255,255,0.9)' : 'var(--text)';
+  const bg = light ? 'transparent' : 'var(--cream)';
+  return (
+    <div style={{ height:44, padding:'12px 26px 0', display:'flex', justifyContent:'space-between', alignItems:'center', background:bg, position:'relative', zIndex:10, flexShrink:0 }}>
+      <span style={{ fontSize:13, fontWeight:700, color:c }}>{time}</span>
+      <div style={{ position:'absolute', top:0, left:'50%', transform:'translateX(-50%)', width:126, height:34, background:'#0A0A0A', borderRadius:'0 0 22px 22px' }} />
+      <div style={{ display:'flex', gap:5, alignItems:'center' }}>
+        <svg width="16" height="11" viewBox="0 0 16 11"><rect x="0" y="6" width="2.5" height="5" rx="1" fill={c} opacity=".5"/><rect x="4" y="3.5" width="2.5" height="7.5" rx="1" fill={c} opacity=".7"/><rect x="8" y="1" width="2.5" height="10" rx="1" fill={c}/><rect x="12" y="0" width="2.5" height="11" rx="1" fill={c}/></svg>
+        <svg width="24" height="11" viewBox="0 0 24 11"><rect x=".5" y=".5" width="20" height="10" rx="2" stroke={c} strokeWidth="1" fill="none" opacity=".9"/><rect x="21" y="3.5" width="2" height="4" rx="1" fill={c} opacity=".7"/><rect x="2" y="2" width="16" height="7" rx="1" fill={c}/></svg>
+      </div>
+    </div>
+  );
+};
+
+Object.assign(window, { MENU_ITEMS_DATA, MOCK_ORDERS, MOCK_CLIENTS, StatusBar, TWEAK_DEFAULTS, setMenu, useMenu });
+</script>
+
+<!-- ══ CUSTOMER SCREENS ═══════════════════════════════════════════════════════ -->
+<script type="text/babel">
+const { useState, useRef } = React;
+
+// ── CustomerMenuScreen ────────────────────────────────────────────────────────
+const CustomerMenuScreen = ({ onGoOrder, showPrices, businessName, phone, onResetPhone }) => {
+  const [qty, setQty] = useState({});
+  const menuItems = window.useMenu();
+
+  const add = (id) => setQty(q => ({ ...q, [id]: (q[id]||0)+1 }));
+  const sub = (id) => setQty(q => { const n={...q}; n[id]>1?n[id]--:delete n[id]; return n; });
+
+  const totalItems = Object.values(qty).reduce((a,b)=>a+b,0);
+  const totalPrice = menuItems.reduce((s,i)=>s+(qty[i.id]||0)*i.price,0);
+
+  return (
+    <div className="screen" style={{ background:'var(--cream)' }}>
+      <StatusBar />
+      {/* Orange hero header */}
+      <div style={{ background:'var(--orange)', padding:'12px 18px 18px', position:'relative', overflow:'hidden', flexShrink:0 }}>
+        <div style={{ position:'absolute', top:-40, right:-30, width:120, height:120, borderRadius:'50%', background:'rgba(255,255,255,0.10)' }} />
+        <div style={{ position:'absolute', bottom:-15, right:55, width:75, height:75, borderRadius:'50%', background:'rgba(255,255,255,0.07)' }} />
+        <div style={{ position:'relative', display:'flex', alignItems:'center', gap:11 }}>
+          <div style={{ width:44, height:44, borderRadius:'50%', background:'rgba(255,255,255,0.22)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:15, fontWeight:800, color:'#fff' }}>DC</div>
+          <div>
+            <div style={{ fontSize:11, color:'rgba(255,255,255,0.70)', fontWeight:500 }}>almuerzopuej.com/kimberly</div>
+            <div style={{ fontSize:18, fontWeight:800, color:'#fff', lineHeight:1.2, marginTop:2 }}>{businessName}</div>
+          </div>
+          <div style={{ marginLeft:'auto', background:'rgba(255,255,255,0.18)', backdropFilter:'blur(4px)', color:'#fff', borderRadius:100, padding:'5px 12px', fontSize:12, fontWeight:700, display:'flex', alignItems:'center', gap:5, flexShrink:0 }}>
+            <div style={{ width:7, height:7, borderRadius:'50%', background:'#86EFAC', boxShadow:'0 0 6px #86EFAC' }} />
+            Abierta
+          </div>
+        </div>
+        {phone && (
+          <div onClick={onResetPhone} style={{ position:'relative', marginTop:11, background:'rgba(0,0,0,0.15)', borderRadius:11, padding:'7px 11px', display:'flex', alignItems:'center', gap:8, cursor:'pointer' }}>
+            <span style={{ fontSize:13 }}>📱</span>
+            <span style={{ fontSize:12, color:'rgba(255,255,255,0.95)', fontWeight:600, flex:1 }}>{phone}</span>
+            <span style={{ fontSize:10, color:'rgba(255,255,255,0.65)', fontWeight:600 }}>cambiar</span>
+          </div>
+        )}
+      </div>
+
+      {/* Food photo placeholder */}
+      <div style={{ height:172, background:'repeating-linear-gradient(-45deg,#FED7AA,#FED7AA 10px,#FFEDD5 10px,#FFEDD5 20px)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:7, flexShrink:0 }}>
+        <span style={{ fontSize:34 }}>📸</span>
+        <span style={{ fontSize:12, fontWeight:700, color:'#C2652A', fontFamily:'monospace' }}>foto del menú de hoy</span>
+      </div>
+
+      {/* Date strip */}
+      <div style={{ background:'var(--card)', padding:'12px 18px 10px', borderBottom:'1px solid var(--border)', flexShrink:0 }}>
+        <div style={{ fontSize:12, color:'var(--text-muted)', fontWeight:500 }}>Lunes, 25 de mayo</div>
+        <div style={{ fontSize:20, fontWeight:800, color:'var(--text)' }}>Menú del día</div>
+      </div>
+
+      {/* Scrollable items */}
+      <div style={{ flex:1, overflowY:'auto', padding:'12px 14px', display:'flex', flexDirection:'column', gap:10, paddingBottom: totalItems>0?88:20 }}>
+        {menuItems.map(item => {
+          const out = item.stock === 0;
+          const low = item.stock > 0 && item.stock <= 3;
+          return (
+          <div key={item.id} style={{ background:'var(--card)', borderRadius:'var(--r)', padding:'13px 14px', display:'flex', alignItems:'center', gap:13, boxShadow:'var(--shadow)', border: qty[item.id]?'2px solid var(--orange)':'2px solid transparent', transition:'border-color .2s', opacity: out?0.55:1 }}>
+            <div style={{ width:50, height:50, borderRadius:14, background:'var(--orange-light)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:26, flexShrink:0, position:'relative' }}>
+              {item.emoji}
+            </div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:7, flexWrap:'wrap' }}>
+                <span style={{ fontSize:15, fontWeight:700, color:'var(--text)' }}>{item.name}</span>
+                {out && <span style={{ fontSize:10, fontWeight:700, background:'#FEF2F2', color:'#DC2626', borderRadius:100, padding:'2px 7px' }}>AGOTADO</span>}
+                {low && <span style={{ fontSize:10, fontWeight:700, background:'#FFF7ED', color:'#EA580C', borderRadius:100, padding:'2px 7px', border:'1px solid #FED7AA' }}>Quedan {item.stock}</span>}
+              </div>
+              <div style={{ fontSize:12, color:'var(--text-pale)', marginTop:1 }}>{item.cat}</div>
+              {showPrices && <div style={{ fontSize:15, fontWeight:800, color:'var(--orange)', marginTop:3 }}>Bs. {item.price}</div>}
+            </div>
+            {out ? (
+              <div style={{ fontSize:11, fontWeight:700, color:'#DC2626', padding:'8px 4px', flexShrink:0 }}>—</div>
+            ) : qty[item.id] ? (
+              <div style={{ display:'flex', alignItems:'center', gap:9, flexShrink:0 }}>
+                <button onClick={()=>sub(item.id)} style={{ width:32, height:32, borderRadius:'50%', border:'2px solid var(--orange)', background:'#fff', color:'var(--orange)', fontSize:18, cursor:'pointer', fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center' }}>−</button>
+                <span style={{ fontSize:16, fontWeight:800, color:'var(--text)', minWidth:18, textAlign:'center' }}>{qty[item.id]}</span>
+                <button onClick={()=>qty[item.id] < item.stock && add(item.id)} disabled={qty[item.id] >= item.stock} style={{ width:32, height:32, borderRadius:'50%', background: qty[item.id] >= item.stock ? '#FED7AA' : 'var(--orange)', border:'none', color:'#fff', fontSize:18, cursor:qty[item.id] >= item.stock?'default':'pointer', fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center' }}>+</button>
+              </div>
+            ) : (
+              <button onClick={()=>add(item.id)} style={{ width:38, height:38, borderRadius:'50%', background:'var(--orange)', border:'none', color:'#fff', fontSize:24, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 4px 14px rgba(249,115,22,.35)', flexShrink:0 }}>+</button>
+            )}
+          </div>
+        );})}
+      </div>
+
+      {/* Sticky CTA */}
+      {totalItems > 0 && (
+        <div style={{ position:'absolute', bottom:0, left:0, right:0, padding:'10px 14px 14px', background:'linear-gradient(to top,#fff 70%,transparent)', flexShrink:0 }}>
+          <button onClick={()=>onGoOrder(qty)} style={{ width:'100%', padding:'15px 18px', background:'var(--orange)', color:'#fff', border:'none', borderRadius:14, fontSize:16, fontWeight:800, cursor:'pointer', fontFamily:'var(--font)', display:'flex', justifyContent:'space-between', alignItems:'center', boxShadow:'0 4px 18px rgba(249,115,22,.40)' }}>
+            <span>🛒 Ver pedido ({totalItems})</span>
+            {showPrices && <span>Bs. {totalPrice}</span>}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── CustomerPhoneScreen ───────────────────────────────────────────────────────
+const CustomerPhoneScreen = ({ businessName, onSubmit }) => {
+  const [phone, setPhone] = useState('');
+  const digits = phone.replace(/\D/g, '');
+  const valid = digits.length === 8;
+
+  const fmt = (raw) => {
+    const d = raw.replace(/\D/g, '').slice(0, 8);
+    if (d.length <= 4) return d;
+    return d.slice(0, 4) + ' ' + d.slice(4);
+  };
+
+  return (
+    <div className="screen" style={{ background:'var(--cream)' }}>
+      <StatusBar />
+      {/* Orange hero */}
+      <div style={{ background:'var(--orange)', padding:'24px 22px 70px', position:'relative', overflow:'hidden', flexShrink:0 }}>
+        <div style={{ position:'absolute', top:-40, right:-30, width:160, height:160, borderRadius:'50%', background:'rgba(255,255,255,0.10)' }} />
+        <div style={{ position:'absolute', bottom:-30, left:-20, width:120, height:120, borderRadius:'50%', background:'rgba(255,255,255,0.07)' }} />
+        <div style={{ position:'relative' }}>
+          <div style={{ width:60, height:60, borderRadius:'50%', background:'rgba(255,255,255,0.22)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, fontWeight:800, color:'#fff', marginBottom:14 }}>DC</div>
+          <div style={{ fontSize:12, color:'rgba(255,255,255,0.78)', fontWeight:600, letterSpacing:.3 }}>almuerzopuej.com/kimberly</div>
+          <div style={{ fontSize:23, fontWeight:800, color:'#fff', marginTop:2, lineHeight:1.2 }}>{businessName}</div>
+        </div>
+      </div>
+
+      {/* Form card overlapping */}
+      <div style={{ flex:1, padding:'0 16px', marginTop:-48, display:'flex', flexDirection:'column' }}>
+        <div style={{ background:'#fff', borderRadius:20, padding:'22px 18px 22px', boxShadow:'0 6px 24px rgba(234,88,12,0.12)' }}>
+          <div style={{ fontSize:18, fontWeight:800, color:'var(--text)' }}>👋 ¡Bienvenido!</div>
+          <div style={{ fontSize:13.5, color:'var(--text-mid)', marginTop:6, lineHeight:1.55 }}>
+            Para hacer tu pedido necesitamos tu <strong>número</strong>. Te avisaremos cuando esté listo y lo usaremos para identificar tus pedidos.
+          </div>
+
+          <div style={{ marginTop:18, display:'flex', alignItems:'center', gap:8, border:'2px solid var(--border)', borderRadius:14, background:'var(--cream)', padding:'4px 4px 4px 14px' }}>
+            <span style={{ fontSize:18 }}>🇧🇴</span>
+            <span style={{ fontSize:16, fontWeight:700, color:'var(--text-mid)' }}>+591</span>
+            <input
+              type="tel"
+              inputMode="numeric"
+              maxLength={9}
+              placeholder="7XXX XXXX"
+              value={phone}
+              onChange={e => setPhone(fmt(e.target.value))}
+              style={{ flex:1, padding:'13px 12px', border:'none', borderRadius:10, fontSize:17, fontFamily:'var(--font)', fontWeight:700, color:'var(--text)', background:'transparent', outline:'none', letterSpacing:.5, minWidth:0 }}
+            />
+          </div>
+          <div style={{ marginTop:7, fontSize:11, color: valid ? 'var(--text-pale)' : '#C2652A', fontWeight:600, paddingLeft:4 }}>
+            {digits.length === 0 ? '8 dígitos' : valid ? '✓ válido' : `${digits.length}/8 dígitos`}
+          </div>
+
+          <button
+            onClick={() => valid && onSubmit('+591 ' + fmt(digits))}
+            disabled={!valid}
+            style={{ marginTop:14, width:'100%', padding:'15px', background: valid ? 'var(--orange)' : '#FED7AA', color:'#fff', border:'none', borderRadius:14, fontSize:16, fontWeight:800, cursor: valid ? 'pointer' : 'default', fontFamily:'var(--font)', transition:'background .2s', boxShadow: valid ? '0 4px 14px rgba(249,115,22,.32)' : 'none' }}>
+            Continuar al menú →
+          </button>
+
+          <div style={{ marginTop:14, padding:'10px 12px', background:'var(--orange-light)', borderRadius:11, fontSize:12, color:'var(--text-mid)', display:'flex', gap:8, alignItems:'flex-start', lineHeight:1.5 }}>
+            <span style={{ fontSize:14 }}>🔒</span>
+            <span>Tu número queda guardado solo en este celular. No lo compartimos con nadie.</span>
+          </div>
+        </div>
+
+        {/* Mini feature list */}
+        <div style={{ display:'flex', gap:8, marginTop:14, padding:'0 2px' }}>
+          {[
+            { icon:'⚡', text:'Pide en segundos' },
+            { icon:'🔔', text:'Te avisamos al confirmar' },
+            { icon:'💳', text:'Pago al recibir' },
+          ].map((f,i) => (
+            <div key={i} style={{ flex:1, background:'var(--card)', borderRadius:12, padding:'10px 6px', textAlign:'center', boxShadow:'var(--shadow)' }}>
+              <div style={{ fontSize:20, lineHeight:1 }}>{f.icon}</div>
+              <div style={{ fontSize:10.5, fontWeight:600, color:'var(--text-mid)', marginTop:5, lineHeight:1.3 }}>{f.text}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── CustomerOrderScreen ───────────────────────────────────────────────────────
+const CustomerOrderScreen = ({ qty, phone, businessName, onBack, onSent }) => {
+  const [sending, setSending] = useState(false);
+  const menuItems = window.useMenu();
+  const items = menuItems.filter(i=>qty[i.id]>0).map(i=>({...i,q:qty[i.id],sub:i.price*qty[i.id]}));
+  const total = items.reduce((s,i)=>s+i.sub,0);
+  const handleSend = () => { setSending(true); setTimeout(()=>onSent(), 1100); };
+
+  return (
+    <div className="screen" style={{ background:'var(--bg)' }}>
+      <StatusBar />
+      <div style={{ background:'#fff', padding:'11px 18px 14px', display:'flex', alignItems:'center', gap:11, borderBottom:'1px solid var(--border)', flexShrink:0 }}>
+        <button onClick={onBack} style={{ width:36, height:36, border:'none', borderRadius:11, background:'var(--orange-light)', color:'var(--orange)', fontSize:18, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700 }}>←</button>
+        <div style={{ fontSize:18, fontWeight:800, color:'var(--text)' }}>Tu pedido</div>
+      </div>
+
+      <div style={{ flex:1, overflowY:'auto', padding:'14px', display:'flex', flexDirection:'column', gap:12 }}>
+        {/* Phone chip */}
+        <div style={{ background:'#fff', borderRadius:'var(--r)', padding:'12px 15px', boxShadow:'var(--shadow)', display:'flex', alignItems:'center', gap:11 }}>
+          <div style={{ width:36, height:36, borderRadius:'50%', background:'var(--orange-light)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16 }}>📱</div>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ fontSize:11, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:.5 }}>Pedido de</div>
+            <div style={{ fontSize:14, fontWeight:700, color:'var(--text)', marginTop:1 }}>{phone}</div>
+          </div>
+        </div>
+
+        {/* Summary */}
+        <div style={{ background:'#fff', borderRadius:'var(--r)', padding:'15px', boxShadow:'var(--shadow)' }}>
+          <div style={{ fontSize:11, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:.6, marginBottom:11 }}>Detalle</div>
+          {items.map(item=>(
+            <div key={item.id} style={{ display:'flex', alignItems:'center', gap:11, padding:'10px 0', borderBottom:'1px solid #FAF0E8' }}>
+              <span style={{ fontSize:24 }}>{item.emoji}</span>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:14, fontWeight:600, color:'var(--text)' }}>{item.name}</div>
+                <div style={{ fontSize:12, color:'var(--text-pale)' }}>×{item.q} · Bs. {item.price} c/u</div>
+              </div>
+              <div style={{ fontSize:15, fontWeight:800, color:'var(--orange)' }}>Bs. {item.sub}</div>
+            </div>
+          ))}
+          <div style={{ display:'flex', justifyContent:'space-between', padding:'14px 0 0', fontSize:18, fontWeight:800, color:'var(--text)' }}>
+            <span>Total</span>
+            <span style={{ color:'var(--orange)' }}>Bs. {total}</span>
+          </div>
+        </div>
+
+        {/* Pago info */}
+        <div style={{ background:'var(--orange-light)', borderRadius:14, padding:'12px 14px', display:'flex', gap:10, alignItems:'flex-start', border:'1px solid var(--orange-mid)' }}>
+          <span style={{ fontSize:18 }}>💳</span>
+          <div style={{ fontSize:13, color:'var(--text-mid)', lineHeight:1.45 }}>
+            El pago lo coordinas con {businessName} cuando recibas tu almuerzo.
+          </div>
+        </div>
+      </div>
+
+      {/* Send */}
+      <div style={{ padding:'10px 14px 14px', background:'var(--card)', borderTop:'1px solid var(--border)', flexShrink:0 }}>
+        <button onClick={handleSend} disabled={sending} style={{ width:'100%', padding:'16px', background: sending ? 'var(--orange-deep)' : 'var(--orange)', color:'#fff', border:'none', borderRadius:14, fontSize:17, fontWeight:800, cursor: sending ? 'default' : 'pointer', fontFamily:'var(--font)', display:'flex', alignItems:'center', justifyContent:'center', gap:10, boxShadow:'0 4px 16px rgba(249,115,22,.32)', transition:'background .25s' }}>
+          {sending ? '⏳ Enviando…' : 'Enviar pedido'}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ── CustomerSuccessScreen ─────────────────────────────────────────────────────
+const CustomerSuccessScreen = ({ businessName, onBack }) => (
+  <div className="screen" style={{ background:'var(--cream)', alignItems:'center', justifyContent:'center', padding:'32px 26px', gap:20 }}>
+    <div style={{ width:90, height:90, borderRadius:'50%', background:'var(--orange-light)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:46, border:'3px solid var(--orange-mid)' }}>✓</div>
+    <div style={{ textAlign:'center' }}>
+      <div style={{ fontSize:24, fontWeight:800, color:'var(--text)' }}>¡Pedido recibido!</div>
+      <div style={{ fontSize:14, color:'var(--text-mid)', marginTop:10, lineHeight:1.6, maxWidth:280 }}>
+        <strong>{businessName}</strong> ya tiene tu pedido y te avisará apenas lo confirme.
+      </div>
+    </div>
+    <div style={{ background:'#fff', borderRadius:16, padding:'14px 16px', width:'100%', display:'flex', alignItems:'center', gap:12, boxShadow:'var(--shadow)' }}>
+      <div style={{ width:34, height:34, borderRadius:'50%', background:'var(--orange-light)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, flexShrink:0 }}>🔔</div>
+      <div style={{ fontSize:13, color:'var(--text-mid)', lineHeight:1.45 }}>
+        Recibirás una notificación cuando tu pedido esté <strong>confirmado</strong>.
+      </div>
+    </div>
+    <button onClick={onBack} style={{ marginTop:4, background:'var(--orange-light)', color:'var(--orange)', border:'none', borderRadius:14, padding:'13px 28px', fontSize:15, fontWeight:700, cursor:'pointer', fontFamily:'var(--font)' }}>
+      ← Volver al menú
+    </button>
+  </div>
+);
+
+// ── CustomerApp ───────────────────────────────────────────────────────────────
+const CustomerApp = ({ showPrices, businessName }) => {
+  const STORAGE_KEY = 'almuerzopuej_phone';
+  const [phone, setPhone] = useState(() => { try { return localStorage.getItem(STORAGE_KEY) || ''; } catch { return ''; } });
+  const [screen, setScreen] = useState(phone ? 'menu' : 'phone');
+  const [qty, setQty] = useState({});
+
+  const savePhone = (p) => {
+    setPhone(p);
+    try { localStorage.setItem(STORAGE_KEY, p); } catch {}
+    setScreen('menu');
+  };
+
+  if (screen==='phone')   return <CustomerPhoneScreen businessName={businessName} onSubmit={savePhone} />;
+  if (screen==='menu')    return <CustomerMenuScreen onGoOrder={q=>{setQty(q);setScreen('order');}} showPrices={showPrices} businessName={businessName} phone={phone} onResetPhone={()=>{ try{localStorage.removeItem(STORAGE_KEY);}catch{} setPhone(''); setScreen('phone'); }} />;
+  if (screen==='order')   return <CustomerOrderScreen qty={qty} phone={phone} businessName={businessName} onBack={()=>setScreen('menu')} onSent={()=>setScreen('success')} />;
+  if (screen==='success') return <CustomerSuccessScreen businessName={businessName} onBack={()=>{setQty({});setScreen('menu');}} />;
+  return null;
+};
+
+Object.assign(window, { CustomerApp });
+</script>
+
+<!-- ══ VENDOR SCREENS (external) ════════════════════════════════════════════ -->
+<script type="text/babel" src="VendorScreens.jsx"></script>
+
+<!-- ══ TWEAKS PANEL ══════════════════════════════════════════════════════════ -->
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+
+<!-- ══ MAIN APP ══════════════════════════════════════════════════════════════ -->
+<script type="text/babel">
+const { useState: useS, useEffect: useE } = React;
+
+function AppRoot() {
+  const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const [mode, setMode] = useS('customer');
+
+  const businessName = tweaks.businessName || 'El Sabor de René (Kimberly)';
+  const showPrices = tweaks.showPrices !== false;
+
+  useE(() => {
+    document.documentElement.style.setProperty('--orange', tweaks.primaryColor || '#F97316');
+  }, [tweaks.primaryColor]);
+
+  const VA = window.VendorApp;
+
+  return (
+    <>
+      <div className="mode-row">
+        <div className="mode-label">AlmuerzoPuej · Prototipo</div>
+        <div className="mode-toggle">
+          <button className={`mode-btn${mode==='customer'?' active':''}`} onClick={()=>setMode('customer')}>👤 Cliente</button>
+          <button className={`mode-btn${mode==='vendor'?' active':''}`} onClick={()=>setMode('vendor')}>👩‍🍳 Vendedora</button>
+        </div>
+      </div>
+
+      <div className="phone">
+        <div className="notch" />
+        <div className="phone-inner">
+          {mode==='customer'
+            ? <CustomerApp showPrices={showPrices} businessName={businessName} />
+            : VA ? <VA businessName={businessName} /> : <div style={{padding:40,color:'#999'}}>Cargando…</div>
+          }
+        </div>
+      </div>
+
+      <div className="slug-badge">
+        almuerzopuej.com/<span>kimberly</span>
+      </div>
+
+      <TweaksPanel>
+        <TweakSection label="Contenido" />
+        <TweakText   label="Nombre del negocio" value={tweaks.businessName}  onChange={v => setTweak('businessName', v)} />
+        <TweakToggle label="Mostrar precios"    value={tweaks.showPrices}    onChange={v => setTweak('showPrices', v)} />
+        <TweakSection label="Color" />
+        <TweakColor  label="Principal"        value={tweaks.primaryColor} onChange={v => setTweak('primaryColor', v)}
+          options={['#F97316','#D97706','#16A34A','#7C3AED']} />
+      </TweaksPanel>
+    </>
+  );
+}
+
+function renderWhenReady() {
+  if (!window.VendorApp || !window.useTweaks) { setTimeout(renderWhenReady, 40); return; }
+  ReactDOM.createRoot(document.getElementById('root')).render(<AppRoot />);
+}
+renderWhenReady();
+</script>
+
+<template id="__bundler_thumbnail">
+  <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg">
+    <rect width="120" height="80" fill="#1A0800"/>
+    <rect x="40" y="8" width="40" height="64" rx="8" fill="#F97316" opacity=".25"/>
+    <rect x="43" y="14" width="34" height="52" rx="6" fill="#FFFBF5"/>
+    <rect x="43" y="14" width="34" height="16" rx="6" fill="#F97316"/>
+    <circle cx="60" cy="22" r="5" fill="rgba(255,255,255,0.3)"/>
+    <rect x="46" y="34" width="28" height="5" rx="2.5" fill="#FED7AA"/>
+    <rect x="46" y="42" width="22" height="5" rx="2.5" fill="#FED7AA"/>
+    <rect x="46" y="50" width="25" height="5" rx="2.5" fill="#FED7AA"/>
+    <rect x="46" y="60" width="28" height="5" rx="2.5" fill="#F97316"/>
+  </svg>
+</template>
+</body>
+</html>
